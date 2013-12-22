@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Server Log Watcher: <%= wsHost %></title>
+    <script src="http://code.jquery.com/jquery-1.8.3.min.js"></script>
+
+    <style>
+h1 {
+  font-family: Arial, Helvetica;
+}
+#logs {
+  list-style-type: none;
+  margin: 24px 0px 0px;
+  padding: 0px;
+}
+.log {
+  word-wrap: break-word;
+  word-break: break-all;
+  font-family: Osaka-mono, "Osaka-等幅", "ＭＳ ゴシック", monospace;
+  line-height: 1;
+  margin: 0px 0px;
+  padding: 1px;
+  border: 1px solid rgba(255, 255, 255, 0);
+  border-radius: 4px;
+  -webkit-transition: all .5s linear;
+  transition: all .5s linear;
+}
+.log:hover, .log.odd:hover {
+  background-color: #ffd;
+  border: 1px solid #33c;
+}
+.log.odd {
+  background-color: #eee;
+}
+footer {
+  background: linear-gradient(rgba(255, 255, 255, 0), white);
+  border: 0 none;
+  bottom: 0;
+  height:80px;
+  left: 0;
+  position: fixed;
+  float: left;
+  width: 100%;
+}
+#indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 10px;
+  background-color: #0f0;
+  padding: 1px;
+  text-align: center;
+  font-family: Arial, Helvetica, Sans-selif;
+  font-weight: bold;
+  color: white;
+}
+#indicator.pause {
+  background-color: red;
+  border-radius: 0px;
+}
+.hidden, .odd.hidden {
+  display: none;
+  background-color: #ffc;
+}
+</style>
+  </head>
+  
+  <body>
+    <h1>Server Log Watcher: <%= wsHost %></h1>
+    <div id="indicator"></div>
+    <form name="logChooser" onsubmit="return false;">
+      <label for="logfile">監視ログファイル変更</label>
+      <select id="logfile" name="logfile"
+        onchange="logWatch.changeLog();"><%
+        var i =0;
+        logList.forEach( function(file) { %>
+        <option value="<%= i++ %>"><%= file %></option> <% }) %>
+      </select>
+      <input type="checkbox" id="cb_pause"
+        onchange="logWatch.checkbox();"
+      /><label for="cb_pause">一時停止</label>
+    </form>
+    <ul id="logs"></ul>
+    <footer></footer>
+  </body>
+  <script>
+
+// 初期値設定 
+var logWatch = {
+  port: <%= wsPort %>,
+  host: "<%= wsHost %>",
+  odd        : 0,
+  isPause    : false,
+  hiddenCount: 0,
+  dom : {
+    logs     : $("#logs"),
+    logfile  : $("#logfile"),
+    pause    : $("#cb_pause"),
+    indicator: $("#indicator")
+  }
+};
+logWatch.url = "ws://" + logWatch.host + ":" + logWatch.port + "/";
+
+// ログの変更関連
+logWatch.clear = function() {
+  logWatch.dom.logs.children().remove();
+};
+logWatch.changeLog = function() {
+  ws.send(logWatch.dom.logfile.val());
+  this.clear ();
+};
+logWatch.showIndicator = function() {
+  if ( logWatch.isPause ) {
+    logWatch.dom.indicator.addClass("pause");
+  }
+  else {
+    logWatch.dom.indicator.removeClass("pause");
+  }
+};
+
+// ログ表示の一時停止・再開関連
+// ポーズチェックボックスの確認
+logWatch.pauseIsChecked = function() {
+  return $(logWatch.dom.pause).is(":checked");
+}
+// ポーズ解除
+logWatch.resume = function() {
+  logWatch.isPause = false;
+  $(".paused").fadeIn().removeClass("paused").removeClass("hidden");
+  logWatch.showIndicator();
+  logWatch.clearHiddenCount();
+  logWatch.showHiddenCount();
+};
+// ポーズ
+logWatch.pause = function() {
+  logWatch.isPause = true;
+  logWatch.showIndicator();
+};
+// チェックボックス操作によるポーズ・ポーズ解除
+logWatch.checkbox = function() {
+  if ( logWatch.pauseIsChecked() ) {
+    logWatch.pause();
+  }
+  else {
+    logWatch.resume();
+  }
+}
+// マウス操作によるポーズ
+logWatch.mouseOver = function() {
+  logWatch.pause();
+}
+// マウス操作によるポーズ解除
+logWatch.mouseOut = function() {
+  if (! logWatch.pauseIsChecked() ) {
+    logWatch.resume();
+  }
+}
+
+// ログの更新関連
+// ステージへ追加
+logWatch.append = function(data) {
+  data = data.replace(/[\x00-\x1f\x7f]/g, ""); // 制御コード消去
+  data = data.replace(/&/g, "&amp;"); // HTML表示用にアンパサンドを文字参照に
+  data = data.replace(/</g, "&lt;");  // HTML表示用に不等号を文字参照に
+  data = data.replace(/>/g, "&gt;");  // HTML表示用に不等号を文字参照に
+  var item = $('<li class="log hidden">' + data + "</li>");
+  if ( logWatch.odd ) {
+    item.addClass("odd");
+  }
+  if ( logWatch.isPause ) {
+    item.addClass("paused");
+  }
+  item.mouseover( function() { logWatch.mouseOver() } );
+  item.mouseout ( function() { logWatch.mouseOut () } );
+  this.dom.logs.prepend(item);
+  if ( !logWatch.isPause ) {
+    item.fadeIn(60).removeClass("hidden");
+  } else {
+    logWatch.incHiddenCount();
+    logWatch.showHiddenCount();
+  }
+};
+
+// カウント関連
+logWatch.incHiddenCount = function() {
+  logWatch.hiddenCount++;
+};
+logWatch.getHiddenCount = function() {
+  return logWatch.hiddenCount;
+}
+logWatch.clearHiddenCount = function() {
+  logWatch.hiddenCount = 0;
+}
+logWatch.showHiddenCount = function() {
+  var count = logWatch.getHiddenCount();
+  if ( count == 0 ) {
+    count = "";
+  }
+  logWatch.dom.indicator.text( count );
+}
+logWatch.addCount = function() {
+  logWatch.odd = ++logWatch.odd % 2;
+}
+
+// WebSocketオブジェクト
+var WebSocket = window.WebSocket || Window.MozWebSocket;
+try {
+  ws = new WebSocket (logWatch.url);
+}
+catch (e) {
+  logWatch.append("接続できませんでした");
+  console.error(e.toString());
+}
+
+// DOM構築後処理（WebSocket関係）
+$( function() {
+
+  ws.onopen = function() {
+    logWatch.append( logWatch.url + "へ接続しました");
+  }
+  ws.onerror = function(event){
+    //エラー処理
+    console.log(event);
+  }
+  // データが着信すると動作するonmessageイベント
+  ws.onmessage = function(msg) {
+    var data = JSON.parse( msg.data );
+    logWatch.append( data );
+    logWatch.addCount();
+  }
+  ws.onclose = function() {
+    logWatch.append("接続が切れました（" + logWatch.url + "）<br />"
+                  + "サーバ側にnode.jsが設置され、サーバスクリプトが"
+                  + "動いていることを確認してください。");
+  }
+});
+  </script>
+</html>
