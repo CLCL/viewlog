@@ -106,58 +106,58 @@ logWatch.url = "ws://" + logWatch.host + ":" + logWatch.port + "/";
 
 // ログの変更関連
 logWatch.clear = function() {
-  logWatch.dom.logs.children().remove();
+  this.dom.logs.children().remove();
 };
 logWatch.changeLog = function() {
-  ws.send(logWatch.dom.logfile.val());
+  ws.send(this.dom.logfile.val());
   this.clear ();
 };
 logWatch.showIndicator = function() {
-  if ( logWatch.isPause ) {
-    logWatch.dom.indicator.addClass("pause");
+  if ( this.isPause ) {
+    this.dom.indicator.addClass("pause");
   }
   else {
-    logWatch.dom.indicator.removeClass("pause");
+    this.dom.indicator.removeClass("pause");
   }
 };
 
 // ログ表示の一時停止・再開関連
 // ポーズチェックボックスの確認
 logWatch.pauseIsChecked = function() {
-  return $(logWatch.dom.pause).is(":checked");
-}
+  return $(this.dom.pause).is(":checked");
+};
 // ポーズ解除
 logWatch.resume = function() {
-  logWatch.isPause = false;
+  this.isPause = false;
   $(".paused").fadeIn().removeClass("paused").removeClass("hidden");
-  logWatch.showIndicator();
-  logWatch.clearHiddenCount();
-  logWatch.showHiddenCount();
+  this.showIndicator();
+  this.clearHiddenCount();
+  this.showHiddenCount();
 };
 // ポーズ
 logWatch.pause = function() {
-  logWatch.isPause = true;
-  logWatch.showIndicator();
+  this.isPause = true;
+  this.showIndicator();
 };
 // チェックボックス操作によるポーズ・ポーズ解除
 logWatch.checkbox = function() {
-  if ( logWatch.pauseIsChecked() ) {
-    logWatch.pause();
+  if ( this.pauseIsChecked() ) {
+    this.pause();
   }
   else {
-    logWatch.resume();
+    this.resume();
   }
-}
+};
 // マウス操作によるポーズ
 logWatch.mouseOver = function() {
-  logWatch.pause();
-}
+  this.pause();
+};
 // マウス操作によるポーズ解除
 logWatch.mouseOut = function() {
-  if (! logWatch.pauseIsChecked() ) {
-    logWatch.resume();
+  if (! this.pauseIsChecked() ) {
+    this.resume();
   }
-}
+};
 
 // ログの更新関連
 // ステージへ追加
@@ -167,46 +167,47 @@ logWatch.append = function(data) {
   data = data.replace(/</g, "&lt;");  // HTML表示用に不等号を文字参照に
   data = data.replace(/>/g, "&gt;");  // HTML表示用に不等号を文字参照に
   var item = $('<li class="log hidden">' + data + "</li>");
-  if ( logWatch.odd ) {
+  if ( this.odd ) {
     item.addClass("odd");
   }
-  if ( logWatch.isPause ) {
+  if ( this.isPause ) {
     item.addClass("paused");
   }
-  item.mouseover( function() { logWatch.mouseOver() } );
-  item.mouseout ( function() { logWatch.mouseOut () } );
+  var self = this;
+  item.mouseover( function() { self.mouseOver(); } );
+  item.mouseout ( function() { self.mouseOut (); } );
   this.dom.logs.prepend(item);
-  if ( !logWatch.isPause ) {
+  if ( !this.isPause ) {
     item.fadeIn(60).removeClass("hidden");
   } else {
-    logWatch.incHiddenCount();
-    logWatch.showHiddenCount();
+    this.incHiddenCount();
+    this.showHiddenCount();
   }
 };
 
 // カウント関連
 logWatch.incHiddenCount = function() {
-  logWatch.hiddenCount++;
+  this.hiddenCount++;
 };
 logWatch.getHiddenCount = function() {
-  return logWatch.hiddenCount;
-}
+  return this.hiddenCount;
+};
 logWatch.clearHiddenCount = function() {
-  logWatch.hiddenCount = 0;
-}
+  this.hiddenCount = 0;
+};
 logWatch.showHiddenCount = function() {
-  var count = logWatch.getHiddenCount();
+  var count = this.getHiddenCount();
   if ( count == 0 ) {
     count = "";
   }
-  logWatch.dom.indicator.text( count );
-}
+  this.dom.indicator.text( count );
+};
 logWatch.addCount = function() {
-  logWatch.odd = ++logWatch.odd % 2;
-}
+  this.odd = ++this.odd % 2;
+};
 
 // WebSocketオブジェクト
-var WebSocket = window.WebSocket || Window.MozWebSocket;
+var WebSocket = window.WebSocket || window.MozWebSocket;
 try {
   ws = new WebSocket (logWatch.url);
 }
@@ -220,22 +221,22 @@ $( function() {
 
   ws.onopen = function() {
     logWatch.append( logWatch.url + "へ接続しました");
-  }
+  };
   ws.onerror = function(event){
     //エラー処理
     console.log(event);
-  }
+  };
   // データが着信すると動作するonmessageイベント
   ws.onmessage = function(msg) {
     var data = JSON.parse( msg.data );
     logWatch.append( data );
     logWatch.addCount();
-  }
+  };
   ws.onclose = function() {
     logWatch.append("接続が切れました（" + logWatch.url + "）<br />"
                   + "サーバ側にnode.jsが設置され、サーバスクリプトが"
                   + "動いていることを確認してください。");
-  }
+  };
 });
   </script>
 </html>
